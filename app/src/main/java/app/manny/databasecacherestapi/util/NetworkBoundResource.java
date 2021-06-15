@@ -1,5 +1,7 @@
 package app.manny.databasecacherestapi.util;
 
+import android.util.Log;
+
 import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -14,6 +16,8 @@ import app.manny.databasecacherestapi.requests.responses.ApiResponse;
 // CacheObject: Type for the Resource data. (database cache)
 // RequestObject: Type for the API response. (network request)
 public abstract class NetworkBoundResource<CacheObject, RequestObject> {
+
+    private static final String TAG = "NetworkBoundResource";
 
     private MediatorLiveData<Resource<CacheObject>> results = new MediatorLiveData<>();
 
@@ -41,6 +45,7 @@ public abstract class NetworkBoundResource<CacheObject, RequestObject> {
                 // Deciding whether the data should be retrived from Cache or Remote.
                 if (shouldFetch(cacheObject)){
                     // Fetch data from the remote network
+                    fetchFromNetwork(dbLocal);
                 }else {
                     results.addSource(dbLocal, new Observer<CacheObject>() {
                         @Override
@@ -73,7 +78,84 @@ public abstract class NetworkBoundResource<CacheObject, RequestObject> {
             }
         });
 
-       
+        final LiveData<ApiResponse<RequestObject>> apiResponse = createCall();
+
+
+        results.addSource(apiResponse, new Observer<ApiResponse<RequestObject>>() {
+            @Override
+            public void onChanged(ApiResponse<RequestObject> requestObjectApiResponse) {
+                results.removeSource(dbSource);
+                results.removeSource(apiResponse);
+
+                /**
+                 * 3 cases:
+                 * 1) ApiResponseSuccess
+                 * 2) ApiResponseError
+                 * 3) ApiResponseEmpty
+                 */
+
+                if (requestObjectApiResponse instanceof ApiResponse.ApiSuccessResponse){
+
+                    Log.d(TAG, "ApiSuccess");
+
+                    // All the Database Room operations have to be done in the background thread, if not it may lead to Crashes
+                    appExecutors.getmDiskIO().execute(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            // this is the database call i.e. why the background thread is called.
+                         //   saveCallResult(null);
+                            saveCallResult((RequestObject) processResponse((ApiResponse.ApiSuccessResponse) requestObjectApiResponse) );
+
+                            // this call is going to update the UI, so the mainthread is called.
+                            appExecutors.getMainThreadExecutor().execute(new Runnable() {
+                                @Override
+                                public void run() {
+                                   results.addSource(loadFromDb(), new Observer<CacheObject>() {
+                                       @Override
+                                       public void onChanged(CacheObject cacheObject) {
+                                           setValue(Resource.success(cacheObject));
+                                       }
+                                   });
+                                }
+                            });
+
+                        }
+                    });
+
+                }else if (requestObjectApiResponse instanceof ApiResponse.ApiErrorResponse){
+                    Log.d(TAG, "ApiError");
+                    appExecutors.getMainThreadExecutor().execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            results.addSource(loadFromDb(), new Observer<CacheObject>() {
+                                @Override
+                                public void onChanged(CacheObject cacheObject) {
+                                    setValue(Resource.success(cacheObject));
+                                }
+                            });
+                        }
+                    });
+
+                }else if (requestObjectApiResponse instanceof ApiResponse.ApiEmptyResponse){
+                    Log.d(TAG, "ApiEmpty");
+                    appExecutors.getMainThreadExecutor().execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            results.addSource(dbSource, new Observer<CacheObject>() {
+                                @Override
+                                public void onChanged(CacheObject cacheObject) {
+                                    setValue(Resource.error(((ApiResponse.ApiErrorResponse)requestObjectApiResponse).getErrorMessage(), cacheObject));
+                                }
+                            });
+                        }
+                    });
+
+                }
+
+            }
+        });
+
     }
 
 
@@ -81,6 +163,10 @@ public abstract class NetworkBoundResource<CacheObject, RequestObject> {
         if (results.getValue() != newValue){
             results.postValue(newValue);
         }
+    }
+
+    private CacheObject processResponse(ApiResponse.ApiSuccessResponse response){
+        return (CacheObject) response.getBody();
     }
 
     // Called to save the result of the API response into the database.
