@@ -12,7 +12,7 @@ public interface RecipeApi {
     // SEARCH
     @GET("api/search")
     Call<RecipeSearchResponse> searchRecipe(
-            @Query("key") String key,
+
             @Query("q") String query,
             @Query("page") String page
     );
@@ -20,7 +20,7 @@ public interface RecipeApi {
     // GET RECIPE REQUEST
     @GET("api/get")
     Call<RecipeResponse> getRecipe(
-            @Query("key") String key,
+
             @Query("rId") String recipe_id
     );
 }
