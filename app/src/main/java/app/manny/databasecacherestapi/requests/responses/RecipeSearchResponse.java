@@ -13,6 +13,8 @@ import app.manny.databasecacherestapi.models.Recipe;
 
 public class RecipeSearchResponse {
 
+    // SerializedName actually gets the name from the response. "count","recipes" are objects in the api response call
+    // Expose the serialize and de-serialize the response.
     @SerializedName("count")
     @Expose()
     private int count;

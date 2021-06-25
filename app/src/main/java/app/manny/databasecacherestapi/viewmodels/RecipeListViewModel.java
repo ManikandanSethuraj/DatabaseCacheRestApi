@@ -2,23 +2,43 @@ package app.manny.databasecacherestapi.viewmodels;
 
 
 import android.app.Application;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MediatorLiveData;
 import androidx.lifecycle.MutableLiveData;
+import androidx.lifecycle.Observer;
+
+import java.util.List;
+
+import app.manny.databasecacherestapi.models.Recipe;
+import app.manny.databasecacherestapi.repositories.RecipeRepository;
+import app.manny.databasecacherestapi.util.Resource;
 
 
 public class RecipeListViewModel extends AndroidViewModel {
 
     private static final String TAG = "RecipeListViewModel";
+    private RecipeRepository recipeRepository;
 
     public enum ViewState {CATEGORIES, RECIPES};
 
     private MutableLiveData<ViewState> viewState;
+    private MediatorLiveData<Resource<List<Recipe>>> recipes = new MediatorLiveData<>();
+
+    // Query Extras
+    private boolean isQueryExhuasted;
+    private boolean isPerformingQuery;
+    private int pageNumber;
+    private String query;
+
+    public static final String QUERY_EXHAUSTED = "Query is exhausted.";
 
     public RecipeListViewModel(@NonNull Application application) {
         super(application);
+        recipeRepository = RecipeRepository.getInstance(application);
         init();
     }
 
@@ -31,6 +51,68 @@ public class RecipeListViewModel extends AndroidViewModel {
 
     public LiveData<ViewState> getViewState(){
         return viewState;
+    }
+
+
+    public LiveData<Resource<List<Recipe>>> getRecipes(){
+        return recipes;
+    }
+
+
+
+    public int getPageNumber(){
+        return pageNumber;
+    }
+
+
+    public void searchRecipes(String query, int pageNumber){
+        if (!isPerformingQuery){
+            if (pageNumber == 0){
+                pageNumber = 1;
+            }
+            this.query = query;
+            this.pageNumber = pageNumber;
+            isQueryExhuasted = false;
+            executeSearch();
+        }
+    }
+
+
+    private void executeSearch(){
+        isPerformingQuery = true;
+        viewState.setValue(ViewState.RECIPES);
+        final LiveData<Resource<List<Recipe>>> repositorySource = recipeRepository.searchRecipesApi(query, pageNumber);
+        recipes.addSource(repositorySource, new Observer<Resource<List<Recipe>>>() {
+            @Override
+            public void onChanged(Resource<List<Recipe>> listResource) {
+                if(listResource != null){
+                    recipes.setValue(listResource);
+                    if(listResource.status == Resource.Status.SUCCESS ){
+                        isPerformingQuery = false;
+                        if(listResource.data != null) {
+                            if (listResource.data.size() == 0) {
+                                Log.d(TAG, "onChanged: query is EXHAUSTED...");
+                                recipes.setValue(new Resource<List<Recipe>>(
+                                        Resource.Status.ERROR,
+                                        listResource.data,
+                                        QUERY_EXHAUSTED
+                                ));
+                                isPerformingQuery = true;
+                            }
+                        }
+                        // must remove or it will keep listening to repository
+                        recipes.removeSource(repositorySource);
+                    }
+                    else if(listResource.status == Resource.Status.ERROR ){
+                        isPerformingQuery = false;
+                        recipes.removeSource(repositorySource);
+                    }
+                }
+                else{
+                    recipes.removeSource(repositorySource);
+                }
+            }
+        });
     }
 
 

@@ -21,11 +21,11 @@ public class LiveDataCallAdapter<R> implements CallAdapter<R, LiveData<ApiRespon
 
     @Override
     public Type responseType() {
-        return null;
+        return responseType;
     }
 
     @Override
-    public LiveData<ApiResponse<R>> adapt(Call<R> call) {
+    public LiveData<ApiResponse<R>> adapt(final Call<R> call) {
         return new LiveData<ApiResponse<R>>() {
             @Override
             protected void onActive() {
@@ -34,12 +34,12 @@ public class LiveDataCallAdapter<R> implements CallAdapter<R, LiveData<ApiRespon
                 call.enqueue(new Callback<R>() {
                     @Override
                     public void onResponse(Call<R> call, Response<R> response) {
-                        apiResponse.create(response);
+                        postValue(apiResponse.create(response));
                     }
 
                     @Override
                     public void onFailure(Call<R> call, Throwable t) {
-                        apiResponse.create(t);
+                        postValue(apiResponse.create(t));
                     }
                 });
             }

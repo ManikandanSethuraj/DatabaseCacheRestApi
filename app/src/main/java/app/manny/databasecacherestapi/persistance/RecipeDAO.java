@@ -17,7 +17,8 @@ public interface RecipeDAO {
 
 
     /**
-     * Any Conflict ignore, don't add it to the database
+     * Conflict = ignore, don't add it to the database if the item exists
+     * Conflict = replace,
      * @param recipes
      * @return
      * the long will return list of _ids inserted..
@@ -25,12 +26,15 @@ public interface RecipeDAO {
      * {id1, -1, id3, id4, -1,...}, -1 denotes conflict
      */
 
+
+    // The reason why onConflict is set to ingore is we do not want to replace the some of the details like ingredients and timeStamp
+    // of the Recipe which is been collected from different call.
     @Insert(onConflict = IGNORE)
     long[] insertAllRecipes(Recipe... recipes);
 
 
     @Insert(onConflict = REPLACE)
-    long[] insertRecipe(Recipe recipe);
+    void insertRecipe(Recipe recipe);
 
 
     // Custom update statement so ingredients and timestamp don't get removed

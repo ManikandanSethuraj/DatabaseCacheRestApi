@@ -10,15 +10,15 @@ import java.lang.reflect.Type;
 public class Converters {
 
     @TypeConverter
-    public String fromStringArray(String[] array){
-        Gson gson = new Gson();
-        return gson.toJson(array);
-
+    public static String[] fromString(String value) {
+        Type listType = new TypeToken<String[]>() {}.getType();
+        return new Gson().fromJson(value, listType);
     }
 
     @TypeConverter
-    public String[] fromString(String value){
-        Type type = new TypeToken<String[]>(){}.getType();
-        return new Gson().fromJson(value,type);
+    public static String fromArrayList(String[] list) {
+        Gson gson = new Gson();
+        String json = gson.toJson(list);
+        return json;
     }
 }

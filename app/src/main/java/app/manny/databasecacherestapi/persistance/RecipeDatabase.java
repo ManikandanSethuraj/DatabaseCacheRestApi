@@ -14,7 +14,7 @@ import app.manny.databasecacherestapi.models.Recipe;
 public abstract class RecipeDatabase extends RoomDatabase {
 
     private static RecipeDatabase instance;
-    private static String DATABASE_NAME = "recipe_db";
+    private static final String DATABASE_NAME = "recipe_db";
 
     public static RecipeDatabase getInstance(Context context){
         if (instance == null){

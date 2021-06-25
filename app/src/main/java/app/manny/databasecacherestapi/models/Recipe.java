@@ -6,6 +6,7 @@ import android.os.Parcelable;
 
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
+import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
 
 import org.jetbrains.annotations.NotNull;
@@ -48,9 +49,19 @@ public class Recipe implements Parcelable{
         this.timpstamp = timpstamp;
     }
 
+    @Ignore
     public Recipe() {
     }
-
+    @Ignore
+    public Recipe(Recipe recipe){
+        this.title = recipe.title;
+        this.publisher = recipe.publisher;
+        this.ingredients = recipe.ingredients;
+        this.recipe_id = recipe.recipe_id;
+        this.image_url = recipe.image_url;
+        this.social_rank = recipe.social_rank;
+        this.timpstamp = recipe.timpstamp;
+    }
     protected Recipe(Parcel in) {
         recipe_id = in.readString();
         title = in.readString();
