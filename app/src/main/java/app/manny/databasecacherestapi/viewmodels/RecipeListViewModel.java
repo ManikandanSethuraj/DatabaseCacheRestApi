@@ -9,7 +9,6 @@ import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MediatorLiveData;
 import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.Observer;
 
 import java.util.List;
 
@@ -33,6 +32,8 @@ public class RecipeListViewModel extends AndroidViewModel {
     private boolean isPerformingQuery;
     private int pageNumber;
     private String query;
+    private boolean cancelRequest;
+    private long requestStartTime;
 
     public static final String QUERY_EXHAUSTED = "Query is exhausted.";
 
@@ -77,17 +78,29 @@ public class RecipeListViewModel extends AndroidViewModel {
         }
     }
 
+    public void setViewCategories(){
+        viewState.setValue(ViewState.CATEGORIES);
+    }
+
+    public void searchNextPage(){
+        if(!isQueryExhuasted && !isPerformingQuery){
+            pageNumber++;
+            executeSearch();
+        }
+    }
 
     private void executeSearch(){
+        requestStartTime = System.currentTimeMillis();
+        cancelRequest = false;
         isPerformingQuery = true;
         viewState.setValue(ViewState.RECIPES);
         final LiveData<Resource<List<Recipe>>> repositorySource = recipeRepository.searchRecipesApi(query, pageNumber);
-        recipes.addSource(repositorySource, new Observer<Resource<List<Recipe>>>() {
-            @Override
-            public void onChanged(Resource<List<Recipe>> listResource) {
+        recipes.addSource(repositorySource, listResource -> {
+            if(!cancelRequest){
                 if(listResource != null){
                     recipes.setValue(listResource);
                     if(listResource.status == Resource.Status.SUCCESS ){
+                        Log.d(TAG, "executeSearch: TimeSucess:"+((System.currentTimeMillis() - requestStartTime)/1000)+ " Seconds");
                         isPerformingQuery = false;
                         if(listResource.data != null) {
                             if (listResource.data.size() == 0) {
@@ -104,6 +117,8 @@ public class RecipeListViewModel extends AndroidViewModel {
                         recipes.removeSource(repositorySource);
                     }
                     else if(listResource.status == Resource.Status.ERROR ){
+                        Log.d(TAG, "executeSearch: TimeError:"+((System.currentTimeMillis() - requestStartTime)/1000)+ " Seconds");
+
                         isPerformingQuery = false;
                         recipes.removeSource(repositorySource);
                     }
@@ -112,7 +127,19 @@ public class RecipeListViewModel extends AndroidViewModel {
                     recipes.removeSource(repositorySource);
                 }
             }
+            else{
+                recipes.removeSource(repositorySource);
+            }
         });
+    }
+
+    public void cancelSearchRequest(){
+        if(isPerformingQuery){
+            Log.d(TAG, "cancelSearchRequest: canceling the search request.");
+            cancelRequest = true;
+            isPerformingQuery = false;
+            pageNumber = 1;
+        }
     }
 
 

@@ -23,6 +23,21 @@ public class ApiResponse<T> {
         if (response.isSuccessful()){
             Log.d(TAG, "create: 1");
             T body = response.body();
+
+            // make sure api key is valid and not expired
+            if(body instanceof RecipeSearchResponse){
+                if(!CheckRecipeApiKey.isRecipeApiKeyValid((RecipeSearchResponse)body)){
+                    String errorMsg = "Api key invalid or expired.";
+                    return new ApiErrorResponse<>(errorMsg);
+                }
+            }
+            else if(body instanceof RecipeResponse){
+                if(!CheckRecipeApiKey.isRecipeApiKeyValid((RecipeResponse)body)){
+                    String errorMsg = "Api key invalid or expired.";
+                    return new ApiErrorResponse<>(errorMsg);
+                }
+            }
+
             if (body != null || response.code() != 204){
                 Log.d(TAG, "create: 2");
                 Log.d(TAG, "create: "+response.body());

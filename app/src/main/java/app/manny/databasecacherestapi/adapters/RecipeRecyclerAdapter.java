@@ -1,24 +1,30 @@
 package app.manny.databasecacherestapi.adapters;
 
-import android.net.Uri;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.request.RequestOptions;
+import com.bumptech.glide.ListPreloader;
+import com.bumptech.glide.RequestBuilder;
+import com.bumptech.glide.RequestManager;
+import com.bumptech.glide.util.ViewPreloadSizeProvider;
+
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import app.manny.databasecacherestapi.R;
 import app.manny.databasecacherestapi.models.Recipe;
 import app.manny.databasecacherestapi.util.Constants;
 
-public class RecipeRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+public class RecipeRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> implements ListPreloader.PreloadModelProvider {
 
     private static final int RECIPE_TYPE = 1;
     private static final int LOADING_TYPE = 2;
@@ -27,9 +33,12 @@ public class RecipeRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.Vie
 
     private List<Recipe> mRecipes;
     private OnRecipeListener mOnRecipeListener;
-
-    public RecipeRecyclerAdapter(OnRecipeListener mOnRecipeListener) {
+    private RequestManager requestManager;
+    private ViewPreloadSizeProvider<String> viewPreloadSizeProvider;
+    public RecipeRecyclerAdapter(OnRecipeListener mOnRecipeListener, RequestManager requestManager, ViewPreloadSizeProvider<String> viewPreloadSizeProvider) {
         this.mOnRecipeListener = mOnRecipeListener;
+        this.requestManager = requestManager;
+        this.viewPreloadSizeProvider = viewPreloadSizeProvider;
     }
 
     @NonNull
@@ -41,7 +50,7 @@ public class RecipeRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.Vie
 
             case RECIPE_TYPE:{
                 view = LayoutInflater.from(viewGroup.getContext()).inflate(R.layout.layout_recipe_list_item, viewGroup, false);
-                return new RecipeViewHolder(view, mOnRecipeListener);
+                return new RecipeViewHolder(view, mOnRecipeListener, requestManager, viewPreloadSizeProvider);
             }
 
             case LOADING_TYPE:{
@@ -56,12 +65,12 @@ public class RecipeRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.Vie
 
             case CATEGORY_TYPE:{
                 view = LayoutInflater.from(viewGroup.getContext()).inflate(R.layout.layout_category_list_item, viewGroup, false);
-                return new CategoryViewHolder(view, mOnRecipeListener);
+                return new CategoryViewHolder(view, mOnRecipeListener, requestManager);
             }
 
             default:{
                 view = LayoutInflater.from(viewGroup.getContext()).inflate(R.layout.layout_recipe_list_item, viewGroup, false);
-                return new RecipeViewHolder(view, mOnRecipeListener);
+                return new RecipeViewHolder(view, mOnRecipeListener, requestManager, viewPreloadSizeProvider);
             }
         }
 
@@ -73,31 +82,10 @@ public class RecipeRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.Vie
 
         int itemViewType = getItemViewType(i);
         if(itemViewType == RECIPE_TYPE){
-            RequestOptions requestOptions = new RequestOptions()
-                    .placeholder(R.drawable.ic_launcher_background);
-
-            Glide.with(viewHolder.itemView.getContext())
-                    .setDefaultRequestOptions(requestOptions)
-                    .load(mRecipes.get(i).getImage_url())
-                    .into(((RecipeViewHolder)viewHolder).image);
-
-            ((RecipeViewHolder)viewHolder).title.setText(mRecipes.get(i).getTitle());
-            ((RecipeViewHolder)viewHolder).publisher.setText(mRecipes.get(i).getPublisher());
-            ((RecipeViewHolder)viewHolder).socialScore.setText(String.valueOf(Math.round(mRecipes.get(i).getSocial_rank())));
+            ((RecipeViewHolder)viewHolder).onBind(mRecipes.get(i));
         }
         else if(itemViewType == CATEGORY_TYPE){
-
-            RequestOptions requestOptions = new RequestOptions()
-                    .placeholder(R.drawable.ic_launcher_background);
-
-            Uri path = Uri.parse("android.resource://com.codingwithmitch.foodrecipes/drawable/" + mRecipes.get(i).getImage_url());
-            Glide.with(viewHolder.itemView.getContext())
-                    .setDefaultRequestOptions(requestOptions)
-                    .load(path)
-                    .into(((CategoryViewHolder)viewHolder).categoryImage);
-
-            ((CategoryViewHolder)viewHolder).categoryTitle.setText(mRecipes.get(i).getTitle());
-
+            ((CategoryViewHolder)viewHolder).onBind(mRecipes.get(i));
         }
 
     }
@@ -217,6 +205,23 @@ public class RecipeRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.Vie
         return null;
     }
 
+    @NonNull
+    @NotNull
+    @Override
+    public List getPreloadItems(int position) {
+        String url = mRecipes.get(position).getImage_url();
+        if (TextUtils.isEmpty(url)){
+            return Collections.emptyList();
+        }
+        return Collections.singletonList(url);
+    }
+
+    @Nullable
+    @org.jetbrains.annotations.Nullable
+    @Override
+    public RequestBuilder<?> getPreloadRequestBuilder(@NonNull @NotNull Object item) {
+        return requestManager.load(item);
+    }
 }
 
 
